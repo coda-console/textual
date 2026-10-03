@@ -14,6 +14,7 @@
     var model: TextSelectionModel
     var exclusionRects: [CGRect]
     var openURL: OpenURLAction
+    var actions: [TextSelectionAction]
 
     override var acceptsFirstResponder: Bool { true }
     override var isFlipped: Bool { true }
@@ -25,11 +26,13 @@
     init(
       model: TextSelectionModel,
       exclusionRects: [CGRect],
-      openURL: OpenURLAction
+      openURL: OpenURLAction,
+      actions: [TextSelectionAction] = []
     ) {
       self.model = model
       self.exclusionRects = exclusionRects
       self.openURL = openURL
+      self.actions = actions
 
       super.init(frame: .zero)
       self.wantsLayer = false
@@ -203,6 +206,22 @@
           NSLocalizedString("Copy", bundle: .main, comment: "")
         }
 
+      for (index, action) in actions.enumerated() {
+        let item = NSMenuItem(
+          title: action.title,
+          action: #selector(performAction(_:)),
+          keyEquivalent: ""
+        )
+        item.tag = index
+        item.image = action.systemImage.flatMap {
+          NSImage(systemSymbolName: $0, accessibilityDescription: nil)
+        }
+        contextMenu.addItem(item)
+      }
+      if !actions.isEmpty {
+        contextMenu.addItem(.separator())
+      }
+
       contextMenu.addItem(
         .init(
           title: shareActionTitle,
@@ -220,6 +239,16 @@
       )
 
       return contextMenu
+    }
+
+    @objc private func performAction(_ sender: NSMenuItem) {
+      guard actions.indices.contains(sender.tag),
+        let selectedRange = model.selectedRange, !selectedRange.isCollapsed
+      else {
+        return
+      }
+      let text = Formatter(model.attributedText(in: selectedRange)).plainText()
+      actions[sender.tag].perform(text)
     }
 
     private func modifySelection(

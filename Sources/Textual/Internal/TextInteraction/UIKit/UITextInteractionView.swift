@@ -20,6 +20,7 @@
     var model: TextSelectionModel
     var exclusionRects: [CGRect]
     var openURL: OpenURLAction
+    var actions: [TextSelectionAction]
 
     weak var inputDelegate: (any UITextInputDelegate)?
 
@@ -31,11 +32,13 @@
     init(
       model: TextSelectionModel,
       exclusionRects: [CGRect],
-      openURL: OpenURLAction
+      openURL: OpenURLAction,
+      actions: [TextSelectionAction] = []
     ) {
       self.model = model
       self.exclusionRects = exclusionRects
       self.openURL = openURL
+      self.actions = actions
       self.selectionInteraction = UITextInteraction(for: .nonEditable)
 
       super.init(frame: .zero)
@@ -82,6 +85,28 @@
           ]
         ]
       )
+    }
+
+    func editMenu(for textRange: UITextRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
+      guard !actions.isEmpty, let selectedRange = model.selectedRange, !selectedRange.isCollapsed else {
+        return nil
+      }
+      let custom = actions.map { action in
+        UIAction(title: action.title, image: action.systemImage.flatMap { UIImage(systemName: $0) }) {
+          [weak self] _ in
+          self?.perform(action)
+        }
+      }
+      return UIMenu(children: custom + suggestedActions)
+    }
+
+    private func perform(_ action: TextSelectionAction) {
+      guard let selectedRange = model.selectedRange, !selectedRange.isCollapsed else {
+        return
+      }
+      let text = Formatter(model.attributedText(in: selectedRange)).plainText()
+      model.selectedRange = nil
+      action.perform(text)
     }
 
     private func setUp() {

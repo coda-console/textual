@@ -23,7 +23,8 @@
       UITextInteractionView(
         model: model,
         exclusionRects: overflowFrames,
-        openURL: context.environment.openURL
+        openURL: context.environment.openURL,
+        actions: context.environment.textSelectionActions
       )
     }
 
@@ -31,6 +32,7 @@
       uiView.model = model
       uiView.exclusionRects = overflowFrames
       uiView.openURL = context.environment.openURL
+      uiView.actions = context.environment.textSelectionActions
     }
   }
 #endif
