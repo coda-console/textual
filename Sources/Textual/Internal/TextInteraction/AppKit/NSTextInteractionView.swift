@@ -36,6 +36,14 @@
 
       super.init(frame: .zero)
       self.wantsLayer = false
+      // Participate in AppKit's cursor arbitration. A SwiftUI hover callback
+      // runs independently and its cursor can be overwritten later in the event.
+      addTrackingArea(NSTrackingArea(
+        rect: .zero,
+        options: [.activeInKeyWindow, .inVisibleRect, .cursorUpdate, .mouseMoved],
+        owner: self,
+        userInfo: nil
+      ))
     }
 
     required init?(coder: NSCoder) {
@@ -53,6 +61,32 @@
       } else {
         return super.hitTest(point)
       }
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+      guard !isHiddenOrHasHiddenAncestor else { return }
+      if !updateCursor(with: event) {
+        super.cursorUpdate(with: event)
+      }
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+      // Links and plain text share a tracking area, so update within it as well.
+      // Never push/pop the process-wide cursor stack: retained or removed views
+      // need not receive balanced hover-enter/exit callbacks.
+      _ = updateCursor(with: event)
+    }
+
+    @discardableResult
+    private func updateCursor(with event: NSEvent) -> Bool {
+      let location = convert(event.locationInWindow, from: nil)
+      guard window != nil, !isHiddenOrHasHiddenAncestor,
+        visibleRect.contains(location),
+        !exclusionRects.contains(where: { $0.contains(location) })
+      else { return false }
+      let cursor = model.url(for: location) == nil ? NSCursor.iBeam : NSCursor.pointingHand
+      cursor.set()
+      return true
     }
 
     override func mouseDown(with event: NSEvent) {
