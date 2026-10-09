@@ -36,6 +36,10 @@
 
       super.init(frame: .zero)
       self.wantsLayer = false
+      // This empty interaction overlay draws nothing outside its own bounds.
+      // Since macOS 14, an unclipped NSView's visibleRect can extend into sibling
+      // regions; inVisibleRect must not track the rest of the window.
+      self.clipsToBounds = true
       // Participate in AppKit's cursor arbitration. A SwiftUI hover callback
       // runs independently and its cursor can be overwritten later in the event.
       addTrackingArea(NSTrackingArea(
@@ -81,7 +85,7 @@
     private func updateCursor(with event: NSEvent) -> Bool {
       let location = convert(event.locationInWindow, from: nil)
       guard window != nil, !isHiddenOrHasHiddenAncestor,
-        visibleRect.contains(location),
+        bounds.contains(location), visibleRect.contains(location),
         !exclusionRects.contains(where: { $0.contains(location) })
       else { return false }
       let cursor = model.url(for: location) == nil ? NSCursor.iBeam : NSCursor.pointingHand
