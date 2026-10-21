@@ -15,20 +15,21 @@ struct SelectionFormatterTests {
   func oneItem(markdown: String) throws {
     let formatter = try selected(markdown, text: "早上好")
     #expect(formatter.plainText() == "早上好")
-    #expect(formatter.html() == "<p>早上好</p>")
+    #expect(formatter.html() == "<p>&#26089;&#19978;&#22909;</p>")
   }
 
   @Test func partialItemKeepsInlineFormatting() throws {
     let formatter = try selected("1. 前文 **早上好** [朋友](https://example.com) 后文", text: "早上好 朋友")
     #expect(formatter.plainText() == "早上好 朋友")
     #expect(
-      formatter.html() == "<p><strong>早上好</strong> <a href=\"https://example.com\">朋友</a></p>")
+      formatter.html()
+        == "<p><strong>&#26089;&#19978;&#22909;</strong> <a href=\"https://example.com\">&#26379;&#21451;</a></p>")
   }
 
   @Test func literalNumberIsNotStripped() throws {
     let formatter = try selected("- `1. 早上好`", text: "1. 早上好")
     #expect(formatter.plainText() == "1. 早上好")
-    #expect(formatter.html() == "<p><code>1. 早上好</code></p>")
+    #expect(formatter.html() == "<p><code>1. &#26089;&#19978;&#22909;</code></p>")
   }
 
   @Test func multipleItemsKeepTheirMarkers() throws {
