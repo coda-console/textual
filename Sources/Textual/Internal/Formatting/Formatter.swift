@@ -30,6 +30,29 @@ final class Formatter {
     )
   }
 
+  /// Selecting text inside one list item does not select its marker. Drop the
+  /// shared list ancestors for export, but keep lists spanned by the selection.
+  convenience init(selection: NSAttributedString) {
+    var text = (try? AttributedString(selection, including: \.textual)) ?? .init()
+    let intents = text.runs.map(\.presentationIntent)
+    if let first = intents.first ?? nil,
+      let item = first.components.first(where: { component in
+        guard case .listItem = component.kind else { return false }
+        return intents.allSatisfy { $0?.components.contains(component) == true }
+      })
+    {
+      for run in text.runs {
+        guard let components = run.presentationIntent?.components,
+          let index = components.firstIndex(of: item)
+        else { continue }
+        text[run.range].presentationIntent = components[..<index].reversed().reduce(nil) {
+          PresentationIntent($1.kind, identity: $1.identity, parent: $0)
+        }
+      }
+    }
+    self.init(text)
+  }
+
   init(_ attributedString: AttributedString) {
     self.attributedString = attributedString
   }

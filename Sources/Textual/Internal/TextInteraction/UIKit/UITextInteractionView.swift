@@ -75,7 +75,7 @@
       }
 
       let attributedText = model.attributedText(in: selectedRange)
-      let formatter = Formatter(attributedText)
+      let formatter = Formatter(selection: attributedText)
 
       UIPasteboard.general.setItems(
         [
@@ -104,7 +104,7 @@
       guard let selectedRange = model.selectedRange, !selectedRange.isCollapsed else {
         return
       }
-      let text = Formatter(model.attributedText(in: selectedRange)).plainText()
+      let text = Formatter(selection: model.attributedText(in: selectedRange)).plainText()
       model.selectedRange = nil
       action.perform(text)
     }

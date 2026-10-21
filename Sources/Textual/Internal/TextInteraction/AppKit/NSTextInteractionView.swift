@@ -285,7 +285,7 @@
       else {
         return
       }
-      let text = Formatter(model.attributedText(in: selectedRange)).plainText()
+      let text = Formatter(selection: model.attributedText(in: selectedRange)).plainText()
       actions[sender.tag].perform(text)
     }
 
@@ -351,7 +351,7 @@
       let pasteboard = NSPasteboard.general
       pasteboard.clearContents()
 
-      let formatter = Formatter(attributedText)
+      let formatter = Formatter(selection: attributedText)
       pasteboard.setString(formatter.plainText(), forType: .string)
       pasteboard.setString(formatter.html(), forType: .html)
     }

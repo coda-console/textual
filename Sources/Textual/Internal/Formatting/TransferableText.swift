@@ -8,7 +8,7 @@ final class TransferableText: NSObject {
 
   init(attributedString: NSAttributedString) {
     self.attributedString = attributedString
-    self.formatter = Formatter(attributedString)
+    self.formatter = Formatter(selection: attributedString)
     super.init()
   }
 }
