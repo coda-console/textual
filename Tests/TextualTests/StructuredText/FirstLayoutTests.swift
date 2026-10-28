@@ -15,7 +15,7 @@
         var values: [CGFloat] = []
       }
 
-      @Test func firstReportedHeightIsTheContents() async throws {
+      @Test func firstReportedHeightIsTheContents() throws {
         let heights = Heights()
         let host = NSHostingView(
           rootView: StructuredText(
@@ -36,10 +36,7 @@
         window.isReleasedWhenClosed = false
         window.contentView = host
         defer { window.contentView = nil }
-        for _ in 0..<10 {
-          host.layoutSubtreeIfNeeded()
-          try await Task.sleep(for: .milliseconds(20))
-        }
+        host.layoutSubtreeIfNeeded()
         let first = try #require(heights.values.first)
         #expect(first > 40, "heights: \(heights.values)")
       }
