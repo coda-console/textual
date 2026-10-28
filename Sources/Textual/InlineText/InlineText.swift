@@ -95,7 +95,7 @@ import SwiftUI
 ///   .textual.inlineStyle(style)
 /// ```
 public struct InlineText: View {
-  @State private var attributedString = AttributedString()
+  @State private var parsed = Derived<String, AttributedString>()
 
   private let markup: String
   private let parser: any MarkupParser
@@ -111,6 +111,7 @@ public struct InlineText: View {
   }
 
   public var body: some View {
+    let attributedString = parsed(markup) { (try? parser.attributedString(for: markup)) ?? .init() }
     WithAttachments(attributedString) {
       WithInlineStyle($0) {
         TextFragment($0)
@@ -118,9 +119,6 @@ public struct InlineText: View {
       }
     }
     .coordinateSpace(.textContainer)
-    .onChange(of: markup, initial: true) { _, value in
-      self.attributedString = (try? parser.attributedString(for: value)) ?? .init()
-    }
   }
 }
 
