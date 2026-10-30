@@ -38,6 +38,14 @@ public protocol Attachment: Sendable, Hashable, CustomStringConvertible {
   /// Returns the attachment size for the given proposal.
   func sizeThatFits(_ proposal: ProposedViewSize, in environment: TextEnvironmentValues) -> CGSize
 
+  /// Returns the rectangle to draw the attachment in, given the space its placeholder takes in the
+  /// text and the line it is on.
+  ///
+  /// The default implementation returns `placeholder`. An attachment that should take next to no
+  /// room in the text (for example, a caret) can return a placeholder of almost no size and draw
+  /// over the line's height here, so that it changes neither the line's height nor where it wraps.
+  func drawingBounds(placeholder: CGRect, line: CGRect) -> CGRect
+
   /// Returns a PNG representation of the attachment, if available.
   ///
   /// Implement this to provide PNG-encoded data for serialization, copy/paste,
@@ -52,6 +60,10 @@ extension Attachment {
 
   public func baselineOffset(in _: TextEnvironmentValues) -> CGFloat {
     0
+  }
+
+  public func drawingBounds(placeholder: CGRect, line _: CGRect) -> CGRect {
+    placeholder
   }
 
   public func pngData() -> Data? {
@@ -93,6 +105,10 @@ public struct AnyAttachment: Attachment {
 
   public func baselineOffset(in environment: TextEnvironmentValues) -> CGFloat {
     base.baselineOffset(in: environment)
+  }
+
+  public func drawingBounds(placeholder: CGRect, line: CGRect) -> CGRect {
+    base.drawingBounds(placeholder: placeholder, line: line)
   }
 
   public func sizeThatFits(
