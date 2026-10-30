@@ -5,13 +5,13 @@ import Testing
 @testable import Textual
 
 struct AttachmentDrawingBoundsTests {
-  private struct Placed: Attachment {
+  private struct Placed: Textual.Attachment {
     var description: String { "" }
     var body: some View { Color.clear }
     func sizeThatFits(_: ProposedViewSize, in _: TextEnvironmentValues) -> CGSize { .zero }
   }
 
-  private struct LineTall: Attachment {
+  private struct LineTall: Textual.Attachment {
     var description: String { "" }
     var body: some View { Color.clear }
     func sizeThatFits(_: ProposedViewSize, in _: TextEnvironmentValues) -> CGSize { .zero }
