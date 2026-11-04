@@ -61,6 +61,7 @@ extension StructuredText {
           }
         }
       }
+      .fixedSize(horizontal: false, vertical: true)
     }
 
     private var indentationLevel: Int {

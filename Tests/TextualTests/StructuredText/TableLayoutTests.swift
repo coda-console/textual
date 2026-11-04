@@ -12,6 +12,15 @@
       var lineCounts: [Int] = []
     }
 
+    private static let markdown = """
+      | 假设 | 所以这样做 | 假设不成立时 |
+      | --- | --- | --- |
+      | ① 可重导：坏了能从原始块再导一遍 | 删 TiDB 不算丢数据，湖里有就能删；湖不另做备份；重建只要最终一致 | 要备份、双份校验、删除强一致 |
+      | ② 按块高顺序产生和消费 | 边界只要一条块高线；历史按 bundle 批量读写 | 历史要留在线索引 |
+      | ③ 历史基本不改，要改就整个 bundle 换版本 | 版本用哈希和指针表示，靠状态判断，不用锁 | 要锁和跨系统协调 |
+      | ④ 在线需求只看近期，按自然日、自然周统计 | 窗口取 8 天；更早的去湖里批量查 | 只是调窗口，机制不变 |
+      """
+
     // These widths straddle line breaks where Grid measures a narrower cell than it places.
     @Test(arguments: [603.0, 605.0, 616.0, 618.0, 634.0, 636.0, 640.0], [17.0, 18.0])
     func wrappedGitHubRows(width: CGFloat, fontSize: CGFloat) throws {
@@ -19,14 +28,7 @@
       let host = NSHostingView(
         rootView:
           StructuredText(
-            markdown: """
-              | 假设 | 所以这样做 | 假设不成立时 |
-              | --- | --- | --- |
-              | ① 可重导：坏了能从原始块再导一遍 | 删 TiDB 不算丢数据，湖里有就能删；湖不另做备份；重建只要最终一致 | 要备份、双份校验、删除强一致 |
-              | ② 按块高顺序产生和消费 | 边界只要一条块高线；历史按 bundle 批量读写 | 历史要留在线索引 |
-              | ③ 历史基本不改，要改就整个 bundle 换版本 | 版本用哈希和指针表示，靠状态判断，不用锁 | 要锁和跨系统协调 |
-              | ④ 在线需求只看近期，按自然日、自然周统计 | 窗口取 8 天；更早的去湖里批量查 | 只是调窗口，机制不变 |
-              """
+            markdown: Self.markdown
           )
           .textual.structuredTextStyle(.gitHub)
           .font(.system(size: fontSize))
@@ -71,6 +73,62 @@
           #expect(measurements.lineCounts[index] == 2)
         }
       }
+    }
+
+    @Test func finiteHeightDoesNotStretchRows() throws {
+      let ideal = try measureTable(containerHeight: nil)
+      try #require(ideal.numberOfRows == 5)
+      let constrained = try measureTable(containerHeight: ideal.bounds.height + 202)
+      try #require(constrained.numberOfRows == 5)
+      #expect(constrained.bounds.height == ideal.bounds.height)
+      for row in ideal.rowIndices {
+        #expect(
+          constrained.rowBounds(row).offsetBy(
+            dx: -constrained.bounds.minX, dy: -constrained.bounds.minY)
+            == ideal.rowBounds(row).offsetBy(dx: -ideal.bounds.minX, dy: -ideal.bounds.minY)
+        )
+      }
+    }
+
+    private func measureTable(containerHeight: CGFloat?) throws -> StructuredText.TableLayout {
+      let measurements = Measurements()
+      let content = try AttributedStringMarkdownParser(baseURL: nil).attributedString(
+        for: Self.markdown)
+      let block = try #require(content.blockRuns().first)
+      let tableColumns: [PresentationIntent.TableColumn]? =
+        if case .table(let columns) = block.intent?.kind { columns } else { nil }
+      let columns = try #require(tableColumns)
+      // Exercise Table directly: BlockVStack otherwise discards finite height proposals.
+      let table = StructuredText.Table(
+        intent: block.intent, content: content[block.range], columns: columns
+      )
+      .textual.structuredTextStyle(.gitHub)
+      .font(.system(size: 18))
+      .lineSpacing(8)
+      .textual.textSelection(.enabled)
+      .environment(\.colorScheme, .dark)
+      .overlayPreferenceValue(StructuredText.TableCell.BoundsKey.self) { cells in
+        GeometryReader { geometry in
+          captureCells(cells.mapValues { geometry[$0] }, into: measurements)
+        }
+      }
+      let host = NSHostingView(
+        rootView: Group {
+          if let containerHeight {
+            table.frame(width: 634, height: containerHeight, alignment: .topLeading)
+          } else {
+            table.frame(width: 634).fixedSize(horizontal: false, vertical: true)
+          }
+        })
+      let window = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 634, height: containerHeight ?? 800),
+        styleMask: [.borderless], backing: .buffered, defer: false
+      )
+      window.isReleasedWhenClosed = false
+      window.contentView = host
+      defer { window.contentView = nil }
+      host.layoutSubtreeIfNeeded()
+      return StructuredText.TableLayout(measurements.cells)
     }
 
     private func captureCells(
