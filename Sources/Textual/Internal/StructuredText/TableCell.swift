@@ -22,6 +22,8 @@ extension StructuredText {
       let resolvedStyle =
         tableCellStyle
         .resolve(configuration: configuration)
+        // Report the full grid row allocation, even if a wider final proposal unwraps text.
+        .frame(maxHeight: .infinity)
         .anchorPreference(key: BoundsKey.self, value: .bounds) { anchor in
           [identifier: anchor]
         }
