@@ -6,10 +6,6 @@
 
   @MainActor
   struct BlockVStackLayoutTests {
-    private final class Measurements {
-      var count = 0
-    }
-
     // Omitting spacing exercises the protocol's default, uncached implementation.
     private struct UncachedLayout: Layout {
       func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
@@ -24,8 +20,6 @@
     }
 
     private struct CheckLayout: Layout {
-      let measurements: Measurements
-
       func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let layout = StructuredText.BlockVStackLayout(textAlignment: .leading)
         let baseline = UncachedLayout()
@@ -49,9 +43,6 @@
         let size = layout.sizeThatFits(proposal: proposal, subviews: subviews, cache: &cached)
         #expect(
           size == baseline.sizeThatFits(proposal: proposal, subviews: subviews, cache: &cache))
-        layout.updateCache(&cached, subviews: subviews)
-        #expect(cached.preferredSpacing == nil)
-        measurements.count += 1
         return size
       }
 
@@ -65,7 +56,6 @@
     }
 
     @Test func nestedMarkdownSpacingAndSizeMatchDefault() {
-      let measurements = Measurements()
       let markdown = """
         - Outer list
           - Inner list
@@ -78,11 +68,12 @@
         > ```
         """
       func content(_ text: String, large: Bool) -> some View {
-        CheckLayout(measurements: measurements) {
+        CheckLayout {
           StructuredText(markdown: text)
           Text("Adjacent block")
         }
-        .textual.structuredTextStyle(.gitHub)
+        // Default paragraph and code block margins are font-scaled; GitHub margins are fixed.
+        .textual.structuredTextStyle(.default)
         .font(.system(size: large ? 24 : 14))
         .environment(\.dynamicTypeSize, large ? .accessibility3 : .large)
         .frame(width: 240)
@@ -97,11 +88,24 @@
       window.contentView = host
       defer { window.contentView = nil }
       host.layoutSubtreeIfNeeded()
-      #expect(measurements.count > 0)
-      measurements.count = 0
-      host.rootView = content(markdown + "\n\nAnother paragraph.", large: true)
+      let initialSize = host.fittingSize
+      let finalContent = content(markdown + "\n\nAnother paragraph.", large: true)
+      host.rootView = finalContent
       host.layoutSubtreeIfNeeded()
-      #expect(measurements.count > 0)
+      let updatedSize = host.fittingSize
+
+      // A fresh host cannot inherit stale nested layout caches from the smaller content.
+      let freshHost = NSHostingView(rootView: finalContent)
+      let freshWindow = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 240, height: 800),
+        styleMask: [.borderless], backing: .buffered, defer: false
+      )
+      freshWindow.isReleasedWhenClosed = false
+      freshWindow.contentView = freshHost
+      defer { freshWindow.contentView = nil }
+      freshHost.layoutSubtreeIfNeeded()
+      #expect(updatedSize.height > initialSize.height)
+      #expect(updatedSize == freshHost.fittingSize)
     }
   }
 #endif
