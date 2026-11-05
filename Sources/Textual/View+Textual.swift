@@ -16,16 +16,22 @@ extension View {
 
 extension TextualNamespace where Base: View {
   /// Sets the spacing above and below the current block.
+  ///
+  /// Apply this modifier to the root view returned by a block style. Values set on
+  /// views inside a layout container do not propagate to the surrounding block stack.
   @MainActor public func blockSpacing(_ blockSpacing: StructuredText.BlockSpacing) -> some View {
-    base.preference(key: StructuredText.BlockSpacingKey.self, value: blockSpacing)
+    base.containerValue(\.textualBlockSpacing, blockSpacing)
   }
 
   /// Sets the spacing above and below the current block using a font-relative value.
+  ///
+  /// Apply this modifier to the root view returned by a block style. Values set on
+  /// views inside a layout container do not propagate to the surrounding block stack.
   @MainActor public func blockSpacing(
     _ blockSpacing: FontScaled<StructuredText.BlockSpacing>
   ) -> some View {
     WithFontScaledValue(blockSpacing) { blockSpacing in
-      base.preference(key: StructuredText.BlockSpacingKey.self, value: blockSpacing)
+      base.containerValue(\.textualBlockSpacing, blockSpacing)
     }
   }
 

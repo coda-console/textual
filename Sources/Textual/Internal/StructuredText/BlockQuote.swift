@@ -13,18 +13,18 @@ extension StructuredText {
     }
 
     var body: some View {
-      let configuration = BlockStyleConfiguration(
-        label: .init(
-          BlockContent(
-            parent: intent,
-            content: content
+      Group(subviews: BlockContent(parent: intent, content: content)) { blocks in
+        ForEach(blocks) { block in
+          let configuration = BlockStyleConfiguration(
+            label: .init(block),
+            indentationLevel: indentationLevel
           )
-        ),
-        indentationLevel: indentationLevel
-      )
-      let resolvedStyle = blockQuoteStyle.resolve(configuration: configuration)
+          let resolvedStyle = blockQuoteStyle.resolve(configuration: configuration)
 
-      AnyView(resolvedStyle)
+          AnyView(resolvedStyle)
+            .textual.blockSpacing(block.containerValues.textualBlockSpacing)
+        }
+      }
     }
 
     private var indentationLevel: Int {
