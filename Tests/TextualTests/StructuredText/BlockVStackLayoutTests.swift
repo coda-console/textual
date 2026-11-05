@@ -6,6 +6,50 @@
 
   @MainActor
   struct BlockVStackLayoutTests {
+    private final class Frames {
+      var values: [Int: CGRect] = [:]
+    }
+
+    @Test(arguments: [false, true])
+    func collapsedMarginsAndListOverrides(listSpacing: Bool) throws {
+      let frames = Frames()
+      func block(_ id: Int) -> some View {
+        Color.clear.frame(width: 100, height: 10)
+          .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named("blocks")) }) {
+            frames.values[id] = $0
+          }
+      }
+      let root = StructuredText.BlockVStack {
+        block(0)
+          .textual.blockSpacing(.init(top: 2, bottom: 7))
+          .textual.blockSpacing(.init(bottom: 5))
+        StructuredText.BlockVStack {
+          block(1).textual.blockSpacing(.init(top: 11, bottom: 13))
+          block(3).textual.blockSpacing(.init(top: 3, bottom: 9))
+        }
+        block(2).textual.blockSpacing(.init(top: 17, bottom: 19))
+      }
+      .environment(\.listItemSpacingEnabled, listSpacing)
+      .environment(\.resolvedListItemSpacing, .init(top: 4, bottom: 6))
+      .coordinateSpace(name: "blocks")
+      .fixedSize()
+      let host = NSHostingController(rootView: root)
+      host.sizingOptions = []
+      let first = host.sizeThatFits(in: CGSize(width: 100, height: 1000))
+      host.view.frame = CGRect(origin: .zero, size: first)
+      for _ in 0..<6 {
+        host.view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
+      }
+      let settled = host.sizeThatFits(in: CGSize(width: 100, height: 1000))
+      #expect(first == settled)
+      let positions = try (0..<4).map { try #require(frames.values[$0]) }
+      let gaps = [positions[1].minY - positions[0].maxY, positions[2].minY - positions[3].maxY]
+      // These are the old preference reducer's stable gaps, including the nested union.
+      #expect(gaps == (listSpacing ? [6, 6] : [11, 17]))
+      #expect(positions[3].minY - positions[1].maxY == (listSpacing ? 6 : 13))
+    }
+
     // Omitting spacing exercises the protocol's default, uncached implementation.
     private struct UncachedLayout: Layout {
       func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
