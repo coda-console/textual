@@ -59,9 +59,10 @@ extension StructuredText {
     }
   }
 
-  fileprivate struct BlockVStackLayout: Layout {
+  struct BlockVStackLayout: Layout {
     struct Cache {
       let spacings: [CGFloat]
+      var preferredSpacing: ViewSpacing?
     }
 
     let textAlignment: TextAlignment
@@ -79,6 +80,16 @@ extension StructuredText {
             ?? current.spacing.distance(to: next.spacing, along: .vertical)
         }
       )
+    }
+
+    func spacing(subviews: Subviews, cache: inout Cache) -> ViewSpacing {
+      if let spacing = cache.preferredSpacing { return spacing }
+      // Preserve Layout's default union on every edge, without traversing nested
+      // blocks again for each ancestor's spacing query. Default updateCache
+      // recreates this cache when the layout or its subviews change.
+      let spacing = subviews.reduce(into: ViewSpacing()) { $0.formUnion($1.spacing) }
+      cache.preferredSpacing = spacing
+      return spacing
     }
 
     func sizeThatFits(
