@@ -16,15 +16,15 @@
         .map(\.attributedString)
         .removingIdenticalDuplicates()
 
+      var linesByAttributedString: [ObjectIdentifier: [Text.Layout.Line]] = [:]
+      for (line, fragment) in zip(self, lineFragments) {
+        linesByAttributedString[ObjectIdentifier(fragment.attributedString), default: []].append(line)
+      }
+
       // Attachment attributes are replaced by placeholders in the rendering pipeline (see TextFragment)
       // We need to re-apply them to make them part of the contents during copy operations
       let attributedStrings = layoutAttributedStrings.map { input in
-        // Get all the lines in the layout that reference the input
-        let lines = zip(self, lineFragments)
-          .filter { $1.attributedString === input }
-          .map(\.0)
-
-        return input.applyingAttachments(in: lines)
+        input.applyingAttachments(in: linesByAttributedString[ObjectIdentifier(input)]!)
       }
 
       return .init(
