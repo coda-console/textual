@@ -165,6 +165,14 @@ extension TextualNamespace where Base: View {
     #endif
   }
 
+  /// Performs an action when the user taps text that isn't a link.
+  ///
+  /// Taps on links still open the link, and with text selection enabled a tap that dismisses
+  /// an active selection doesn't trigger the action. Pass `nil` to remove the action.
+  public func onPlainTextTap(_ action: (() -> Void)?) -> some View {
+    base.environment(\.plainTextTapAction, action)
+  }
+
   /// Sets the spacing used between table cells in ``StructuredText``.
   public func tableCellSpacing(
     horizontal: CGFloat? = nil,

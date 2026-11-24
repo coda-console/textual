@@ -24,7 +24,8 @@
         model: model,
         exclusionRects: overflowFrames,
         openURL: context.environment.openURL,
-        actions: context.environment.textSelectionActions
+        actions: context.environment.textSelectionActions,
+        plainTextTapAction: context.environment.plainTextTapAction
       )
     }
 
@@ -33,6 +34,7 @@
       nsView.exclusionRects = overflowFrames
       nsView.openURL = context.environment.openURL
       nsView.actions = context.environment.textSelectionActions
+      nsView.plainTextTapAction = context.environment.plainTextTapAction
     }
   }
 #endif
