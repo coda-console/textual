@@ -20,12 +20,15 @@
     }
 
     func makeUIView(context: Context) -> UITextInteractionView {
-      UITextInteractionView(
+      let view = UITextInteractionView(
         model: model,
         exclusionRects: overflowFrames,
         openURL: context.environment.openURL,
-        actions: context.environment.textSelectionActions
+        actions: context.environment.textSelectionActions,
+        plainTextTapAction: context.environment.plainTextTapAction
       )
+      view.setInitialTextSelection(context.environment.initialTextSelection)
+      return view
     }
 
     func updateUIView(_ uiView: UITextInteractionView, context: Context) {
@@ -33,6 +36,8 @@
       uiView.exclusionRects = overflowFrames
       uiView.openURL = context.environment.openURL
       uiView.actions = context.environment.textSelectionActions
+      uiView.plainTextTapAction = context.environment.plainTextTapAction
+      uiView.setInitialTextSelection(context.environment.initialTextSelection)
     }
   }
 #endif

@@ -15,6 +15,7 @@
     var exclusionRects: [CGRect]
     var openURL: OpenURLAction
     var actions: [TextSelectionAction]
+    var plainTextTapAction: (() -> Void)?
 
     override var acceptsFirstResponder: Bool { true }
     override var isFlipped: Bool { true }
@@ -22,17 +23,20 @@
 
     private var dragStart: TextPosition?
     private var selectionAnchor: TextPosition?
+    private var isPlainTextClick = false
 
     init(
       model: TextSelectionModel,
       exclusionRects: [CGRect],
       openURL: OpenURLAction,
-      actions: [TextSelectionAction] = []
+      actions: [TextSelectionAction] = [],
+      plainTextTapAction: (() -> Void)? = nil
     ) {
       self.model = model
       self.exclusionRects = exclusionRects
       self.openURL = openURL
       self.actions = actions
+      self.plainTextTapAction = plainTextTapAction
 
       super.init(frame: .zero)
       self.wantsLayer = false
@@ -99,10 +103,18 @@
 
       switch event.clickCount {
       case 1:
-        if let url = model.url(for: location) {
+        let resolution = TextTapResolution(
+          url: model.url(for: location),
+          hasActiveSelection: !(model.selectedRange?.isCollapsed ?? true)
+        )
+        switch resolution {
+        case .openURL(let url):
           openURL(url)
-        } else {
+        case .clearSelection:
           resetSelection()
+        case .plainText:
+          resetSelection()
+          isPlainTextClick = true
         }
         dragStart = model.closestPosition(to: location)
       case 2:
@@ -121,6 +133,8 @@
     }
 
     override func mouseDragged(with event: NSEvent) {
+      // A press that drags isn't a tap, even if it ends back where it started.
+      isPlainTextClick = false
       guard let dragStart else {
         return
       }
@@ -137,6 +151,10 @@
 
     override func mouseUp(with event: NSEvent) {
       dragStart = nil
+      if isPlainTextClick {
+        plainTextTapAction?()
+      }
+      isPlainTextClick = false
     }
 
     override func rightMouseDown(with event: NSEvent) {

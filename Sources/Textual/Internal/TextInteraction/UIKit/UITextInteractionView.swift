@@ -21,6 +21,7 @@
     var exclusionRects: [CGRect]
     var openURL: OpenURLAction
     var actions: [TextSelectionAction]
+    var plainTextTapAction: (() -> Void)?
 
     weak var inputDelegate: (any UITextInputDelegate)?
 
@@ -28,17 +29,21 @@
 
     private(set) lazy var _tokenizer = UITextInputStringTokenizer(textInput: self)
     private let selectionInteraction: UITextInteraction
+    private var initialTextSelection = InitialTextSelectionTracker()
+    private var editMenuInteraction: UIEditMenuInteraction?
 
     init(
       model: TextSelectionModel,
       exclusionRects: [CGRect],
       openURL: OpenURLAction,
-      actions: [TextSelectionAction] = []
+      actions: [TextSelectionAction] = [],
+      plainTextTapAction: (() -> Void)? = nil
     ) {
       self.model = model
       self.exclusionRects = exclusionRects
       self.openURL = openURL
       self.actions = actions
+      self.plainTextTapAction = plainTextTapAction
       self.selectionInteraction = UITextInteraction(for: .nonEditable)
 
       super.init(frame: .zero)
@@ -58,6 +63,24 @@
         }
       }
       return super.point(inside: point, with: event)
+    }
+
+    override func didMoveToWindow() {
+      super.didMoveToWindow()
+      applyInitialTextSelection()
+    }
+
+    override func layoutSubviews() {
+      super.layoutSubviews()
+      applyInitialTextSelection()
+    }
+
+    func setInitialTextSelection(_ request: InitialTextSelection?) {
+      initialTextSelection.update(request)
+      if initialTextSelection.pending != nil {
+        // Apply on the next layout pass instead of inside the SwiftUI update.
+        setNeedsLayout()
+      }
     }
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
@@ -118,6 +141,10 @@
         guard let self else { return }
         self.inputDelegate?.selectionDidChange(self)
       }
+      model.layoutCollectionDidChange = { [weak self] in
+        guard let self, self.initialTextSelection.pending != nil else { return }
+        self.setNeedsLayout()
+      }
 
       let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
       addGestureRecognizer(tapGesture)
@@ -134,11 +161,70 @@
 
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
       let location = gesture.location(in: self)
-      guard let url = model.url(for: location) else {
+      let resolution = TextTapResolution(
+        url: model.url(for: location),
+        hasActiveSelection: !(model.selectedRange?.isCollapsed ?? true)
+      )
+      switch resolution {
+      case .openURL(let url):
+        openURL(url)
+      case .clearSelection:
         model.selectedRange = nil
+      case .plainText:
+        model.selectedRange = nil
+        plainTextTapAction?()
+      }
+    }
+
+    private func applyInitialTextSelection() {
+      guard
+        let request = initialTextSelection.take(
+          isReady: window != nil && !bounds.isEmpty && model.hasLayout,
+          contains: { request in
+            let localPoint = convert(request.windowPoint, from: nil)
+            return bounds.contains(localPoint) && point(inside: localPoint, with: nil)
+          }
+        )
+      else {
         return
       }
-      openURL(url)
+
+      let localPoint = convert(request.windowPoint, from: nil)
+      guard
+        let position = model.closestPosition(to: localPoint),
+        let range = model.initialSelectionRange(
+          at: localPoint,
+          position: position,
+          wordRange: { forward in
+            let range = rangeEnclosingPosition(
+              TextPositionBox(position),
+              with: .word,
+              inDirection: .storage(forward ? .forward : .backward)
+            )
+            return (range as? TextRangeBox)?.wrappedValue
+          }
+        )
+      else {
+        return
+      }
+
+      _ = becomeFirstResponder()
+      selectedTextRange = TextRangeBox(range)
+      presentEditMenu(at: localPoint)
+    }
+
+    private func presentEditMenu(at point: CGPoint) {
+      let interaction: UIEditMenuInteraction
+      if let editMenuInteraction {
+        interaction = editMenuInteraction
+      } else {
+        interaction = UIEditMenuInteraction(delegate: self)
+        addInteraction(interaction)
+        editMenuInteraction = interaction
+      }
+      interaction.presentEditMenu(
+        with: UIEditMenuConfiguration(identifier: nil, sourcePoint: point)
+      )
     }
 
     @objc private func share(_ sender: Any?) {
@@ -183,6 +269,18 @@
 
     func interactionDidEnd(_ interaction: UITextInteraction) {
       logger.debug("interactionDidEnd")
+    }
+  }
+
+  extension UITextInteractionView: @MainActor UIEditMenuInteractionDelegate {
+    func editMenuInteraction(
+      _ interaction: UIEditMenuInteraction,
+      menuFor configuration: UIEditMenuConfiguration,
+      suggestedActions: [UIMenuElement]
+    ) -> UIMenu? {
+      guard let selectedTextRange else { return nil }
+      return editMenu(for: selectedTextRange, suggestedActions: suggestedActions)
+        ?? UIMenu(children: suggestedActions)
     }
   }
 

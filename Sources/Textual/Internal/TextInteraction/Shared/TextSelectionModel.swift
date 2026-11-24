@@ -32,6 +32,9 @@
     var selectionDidChange: (() -> Void)?
 
     @ObservationIgnored
+    var layoutCollectionDidChange: (() -> Void)?
+
+    @ObservationIgnored
     private var layoutCollection: any TextLayoutCollection
 
     @ObservationIgnored
@@ -52,6 +55,7 @@
 
       let oldLayoutCollection = self.layoutCollection
       self.layoutCollection = layoutCollection
+      defer { layoutCollectionDidChange?() }
 
       guard
         let selectedRange,
@@ -88,6 +92,10 @@
   extension TextSelectionModel {
     var hasText: Bool {
       layoutCollection.stringLength > 0
+    }
+
+    var hasLayout: Bool {
+      !layoutCollection.layouts.isEmpty
     }
 
     var startPosition: TextPosition {
@@ -155,6 +163,39 @@
 
     func characterRange(at point: CGPoint) -> TextRange? {
       layoutCollection.characterRange(at: point)
+    }
+
+    /// The range to select when starting a selection at `point`, whose closest position is
+    /// `position`.
+    ///
+    /// Prefers the word reported by `wordRange` (forward, then backward), then the character
+    /// under `point`, and only then the character next to `position`, so the result stays on
+    /// the touched line and is non-empty whenever the layout has text.
+    func initialSelectionRange(
+      at point: CGPoint,
+      position: TextPosition,
+      wordRange: (_ forward: Bool) -> TextRange?
+    ) -> TextRange? {
+      for forward in [true, false] {
+        if let range = wordRange(forward), !range.isCollapsed {
+          return range
+        }
+      }
+      if let range = characterRange(at: point), !range.isCollapsed {
+        return range
+      }
+      return characterRange(enclosing: position)
+    }
+
+    /// The single character after `position`, or before it at the end of the text.
+    func characterRange(enclosing position: TextPosition) -> TextRange? {
+      if let next = self.position(from: position, offset: 1), next > position {
+        return TextRange(start: position, end: next)
+      }
+      if let previous = self.position(from: position, offset: -1), previous < position {
+        return TextRange(start: previous, end: position)
+      }
+      return nil
     }
 
     func blockStart(for position: TextPosition) -> TextPosition? {
