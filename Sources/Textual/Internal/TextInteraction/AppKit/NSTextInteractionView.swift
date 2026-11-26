@@ -24,6 +24,7 @@
     private var dragStart: TextPosition?
     private var selectionAnchor: TextPosition?
     private var isPlainTextClick = false
+    private var pendingURL: URL?
 
     init(
       model: TextSelectionModel,
@@ -99,6 +100,7 @@
 
     override func mouseDown(with event: NSEvent) {
       window?.makeFirstResponder(self)
+      pendingURL = nil
       let location = convert(event.locationInWindow, from: nil)
 
       switch event.clickCount {
@@ -109,7 +111,8 @@
         )
         switch resolution {
         case .openURL(let url):
-          openURL(url)
+          // Open on mouse-up so pressing on a link can still start a drag selection.
+          pendingURL = url
         case .clearSelection:
           resetSelection()
         case .plainText:
@@ -135,6 +138,7 @@
     override func mouseDragged(with event: NSEvent) {
       // A press that drags isn't a tap, even if it ends back where it started.
       isPlainTextClick = false
+      pendingURL = nil
       guard let dragStart else {
         return
       }
@@ -151,9 +155,12 @@
 
     override func mouseUp(with event: NSEvent) {
       dragStart = nil
-      if isPlainTextClick {
+      if let url = pendingURL {
+        openURL(url)
+      } else if isPlainTextClick {
         plainTextTapAction?()
       }
+      pendingURL = nil
       isPlainTextClick = false
     }
 
