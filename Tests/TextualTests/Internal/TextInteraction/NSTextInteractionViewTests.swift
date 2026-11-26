@@ -91,6 +91,32 @@
     }
 
     @Test
+    func linkClickOpensOnMouseUp() throws {
+      let calls = Calls()
+      let view = try makeView(calls: calls)
+
+      try send(.leftMouseDown, at: linkPoint, to: view)
+      #expect(calls.openedURLs.isEmpty)
+
+      try send(.leftMouseUp, at: linkPoint, to: view)
+      #expect(calls.openedURLs == [URL(string: "https://example.com")])
+    }
+
+    @Test
+    func dragFromLinkDoesNotOpenURL() throws {
+      let calls = Calls()
+      let view = try makeView(calls: calls)
+
+      try send(.leftMouseDown, at: linkPoint, to: view)
+      try send(.leftMouseDragged, at: plainTextPoint, to: view)
+      try send(.leftMouseUp, at: plainTextPoint, to: view)
+
+      #expect(view.model.selectedRange?.isCollapsed == false)
+      #expect(calls.openedURLs.isEmpty)
+      #expect(calls.plainTextTaps == 0)
+    }
+
+    @Test
     func clickWithActiveSelectionOnlyClearsIt() throws {
       let calls = Calls()
       let view = try makeView(calls: calls)
