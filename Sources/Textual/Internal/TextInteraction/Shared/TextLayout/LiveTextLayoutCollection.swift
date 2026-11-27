@@ -204,17 +204,29 @@
     var typographicBounds: CGRect { base.typographicBounds }
   }
 
+  /// A run as far as its revealed slices. A glyph drawing characters on both sides of the reveal keeps its bounds and
+  /// ends where the reveal does, so positions, selections and copies stop there; a run cut short is hit (links) only
+  /// where its revealed slices are.
   struct RevealedTextRun: TextRun {
     let base: any TextRun
     let slices: [any TextRunSlice]
+    let typographicBounds: CGRect
 
     init(base: any TextRun, revealed: Int) {
       self.base = base
-      self.slices = Array(base.slices.prefix { $0.characterRange.lowerBound < revealed })
+      let shown = base.slices.prefix { $0.characterRange.lowerBound < revealed }
+      self.slices = shown.map { slice in
+        EmptyRunSlice(
+          typographicBounds: slice.typographicBounds,
+          characterRange: slice.characterRange.lowerBound..<min(slice.characterRange.upperBound, revealed)
+        )
+      }
+      self.typographicBounds =
+        shown.count == base.slices.count
+        ? base.typographicBounds : shown.map(\.typographicBounds).reduce(CGRect.null, CGRectUnion)
     }
 
     var layoutDirection: LayoutDirection { base.layoutDirection }
-    var typographicBounds: CGRect { base.typographicBounds }
     var url: URL? { base.url }
   }
 
