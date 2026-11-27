@@ -19,15 +19,19 @@ struct AttachmentView: View {
   private let attachments: Set<AnyAttachment>
   private let origin: CGPoint
   private let layout: Text.Layout
+  /// Where the revealed glyphs end; attachments after it are not drawn.
+  private let revealEnd: Text.Layout.CharacterIndex?
 
   init(
     attachments: Set<AnyAttachment>,
     origin: CGPoint,
-    layout: Text.Layout
+    layout: Text.Layout,
+    revealEnd: Text.Layout.CharacterIndex? = nil
   ) {
     self.attachments = attachments
     self.origin = origin
     self.layout = layout
+    self.revealEnd = revealEnd
   }
 
   var body: some View {
@@ -37,6 +41,7 @@ struct AttachmentView: View {
         for (runIndex, run) in zip(line.indices, line) {
           guard
             let attachment = run.attachment,
+            revealEnd.map({ end in run.characterIndices.contains { $0 < end } }) ?? true,
             let symbol = context.resolveSymbol(id: attachment)
           else {
             continue

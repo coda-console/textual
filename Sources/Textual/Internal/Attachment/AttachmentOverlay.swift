@@ -11,9 +11,11 @@ import SwiftUI
 
 struct AttachmentOverlay: ViewModifier {
   private let attachments: Set<AnyAttachment>
+  private let reveal: Int?
 
-  init(attachments: Set<AnyAttachment>) {
+  init(attachments: Set<AnyAttachment>, reveal: Int?) {
     self.attachments = attachments
+    self.reveal = reveal
   }
 
   func body(content: Content) -> some View {
@@ -24,7 +26,8 @@ struct AttachmentOverlay: ViewModifier {
             AttachmentView(
               attachments: attachments,
               origin: geometry[anchoredLayout.origin],
-              layout: anchoredLayout.layout
+              layout: anchoredLayout.layout,
+              revealEnd: anchoredLayout.layout.textualRevealEnd(reveal)
             )
           }
         }

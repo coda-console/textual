@@ -6,14 +6,17 @@
 
     private let base: Text.LayoutKey.Value
     private let geometry: GeometryProxy
+    private let reveal: Int?
 
-    init(base: Text.LayoutKey.Value, geometry: GeometryProxy) {
+    init(base: Text.LayoutKey.Value, geometry: GeometryProxy, reveal: Int? = nil) {
       self.base = base
       self.geometry = geometry
+      self.reveal = reveal
     }
 
     func isEqual(to other: any TextLayoutCollection) -> Bool {
-      base == (other as? LiveTextLayoutCollection)?.base
+      guard let other = other as? LiveTextLayoutCollection else { return false }
+      return base == other.base && reveal == other.reveal
     }
 
     func needsPositionReconciliation(with other: any TextLayoutCollection) -> Bool {
@@ -34,15 +37,20 @@
         .map { anchoredLayout in
           LiveTextLayout(
             anchoredLayout: anchoredLayout,
-            geometry: geometry
+            geometry: geometry,
+            revealed: anchoredLayout.layout.revealedLength(reveal)
           )
         }
+        // A fragment none of which shows yet has nothing to select.
+        .filter { !$0.lines.isEmpty }
     }
   }
 
   final class LiveTextLayout: TextLayout {
     var attributedString: NSAttributedString {
-      joinedAttributedString.joined
+      guard let revealed else { return joinedAttributedString.joined }
+      let joined = joinedAttributedString.joined
+      return joined.attributedSubstring(from: NSRange(location: 0, length: min(revealed, joined.length)))
     }
 
     let origin: CGPoint
@@ -51,23 +59,29 @@
     private(set) lazy var lines: [any TextLine] = makeLines()
 
     let base: Text.Layout
+    /// The UTF-16 code units that show (`textual.revealCharacters`); nil where all do. Lines, runs and slices
+    /// after them are left out, so positions, selection and copying stop there.
+    private let revealed: Int?
 
     private lazy var contents = base.materializeContents()
     private lazy var joinedAttributedString = contents.attributedStrings.joined()
 
     convenience init(
       anchoredLayout: Text.LayoutKey.AnchoredLayout,
-      geometry: GeometryProxy
+      geometry: GeometryProxy,
+      revealed: Int? = nil
     ) {
       self.init(
         base: anchoredLayout.layout,
-        origin: geometry[anchoredLayout.origin]
+        origin: geometry[anchoredLayout.origin],
+        revealed: revealed
       )
     }
 
-    init(base: Text.Layout, origin: CGPoint) {
+    init(base: Text.Layout, origin: CGPoint, revealed: Int? = nil) {
       self.base = base
       self.origin = origin
+      self.revealed = revealed
     }
 
     private func makeBounds() -> CGRect {
@@ -76,6 +90,13 @@
     }
 
     private func makeLines() -> [any TextLine] {
+      guard let revealed else { return makeAllLines() }
+      return makeAllLines().prefix { line in
+        line.runs.first?.slices.first.map { $0.characterRange.lowerBound < revealed } ?? false
+      }.map { RevealedTextLine(base: $0, revealed: revealed) }
+    }
+
+    private func makeAllLines() -> [any TextLine] {
       guard contents.attributedStrings.count > 1 else {
         return base.map {
           LiveTextLine(base: $0)
@@ -165,6 +186,36 @@
         )
       }
     }
+  }
+
+  /// A line as far as its revealed slices: the runs and slices from the first one that does not show are left out.
+  struct RevealedTextLine: TextLine {
+    let base: any TextLine
+    let runs: [any TextRun]
+
+    init(base: any TextLine, revealed: Int) {
+      self.base = base
+      self.runs = base.runs.prefix { run in
+        run.slices.first.map { $0.characterRange.lowerBound < revealed } ?? false
+      }.map { RevealedTextRun(base: $0, revealed: revealed) }
+    }
+
+    var origin: CGPoint { base.origin }
+    var typographicBounds: CGRect { base.typographicBounds }
+  }
+
+  struct RevealedTextRun: TextRun {
+    let base: any TextRun
+    let slices: [any TextRunSlice]
+
+    init(base: any TextRun, revealed: Int) {
+      self.base = base
+      self.slices = Array(base.slices.prefix { $0.characterRange.lowerBound < revealed })
+    }
+
+    var layoutDirection: LayoutDirection { base.layoutDirection }
+    var typographicBounds: CGRect { base.typographicBounds }
+    var url: URL? { base.url }
   }
 
   struct EmptyRun: TextRun {

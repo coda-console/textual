@@ -14,6 +14,7 @@ import SwiftUI
 struct TextSelectionInteraction: ViewModifier {
   #if TEXTUAL_ENABLE_TEXT_SELECTION
     @Environment(\.textSelection) private var textSelection
+    @Environment(\.textReveal) private var reveal
     @Environment(TextSelectionCoordinator.self) private var coordinator: TextSelectionCoordinator?
 
     @State private var model = TextSelectionModel()
@@ -23,7 +24,7 @@ struct TextSelectionInteraction: ViewModifier {
     #if TEXTUAL_ENABLE_TEXT_SELECTION
       if textSelection.allowsSelection {
         content
-          .overlayTextLayoutCollection { layoutCollection in
+          .overlayTextLayoutCollection(reveal: reveal) { layoutCollection in
             // Deliver the layout collection to the selection model through a
             // representable's update path rather than `onChange`. For short content
             // (a fragment whose text fits without scrolling) all of the progressive

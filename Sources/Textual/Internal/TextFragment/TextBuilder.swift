@@ -19,6 +19,7 @@ import SwiftUI
 extension TextFragment {
   @MainActor @Observable final class TextBuilder {
     var text: Text
+    @ObservationIgnored let characters: TextFragmentCharacters
 
     @ObservationIgnored private let content: Content
     @ObservationIgnored private let cache: NSCache<KeyBox<[AttachmentKey: CGSize]>, Box<Text>>
@@ -32,6 +33,7 @@ extension TextFragment {
         in: environment
       )
       self.content = content
+      self.characters = TextFragmentCharacters(content)
       self.cache = NSCache()
       self.cache.countLimit = 10
 

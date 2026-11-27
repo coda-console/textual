@@ -25,6 +25,8 @@ extension StructuredText {
 
 extension StructuredText {
   struct Block: View {
+    @Environment(\.textReveal) private var reveal
+
     private let intent: PresentationIntent.IntentType?
     private let content: AttributedSubstring
 
@@ -34,6 +36,14 @@ extension StructuredText {
     }
 
     var body: some View {
+      // Its substring's indices are the whole content's, wherever the block is nested.
+      block.environment(
+        \.textRevealOffset,
+        reveal == nil ? 0 : content.base.characters.distance(from: content.base.startIndex, to: content.startIndex)
+      )
+    }
+
+    @ViewBuilder private var block: some View {
       switch intent?.kind {
       case .paragraph where content.isMathBlock:
         MathBlock(content)

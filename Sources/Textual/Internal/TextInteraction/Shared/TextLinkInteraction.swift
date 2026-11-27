@@ -13,6 +13,12 @@ import SwiftUI
 struct TextLinkInteraction: ViewModifier {
   @Environment(\.openURL) private var openURL
   @Environment(\.plainTextTapAction) private var plainTextTapAction
+  /// The revealed characters (`textual.revealCharacters`); a link that does not show yet is not hit.
+  private let reveal: Int?
+
+  init(reveal: Int?) {
+    self.reveal = reveal
+  }
 
   func body(content: Content) -> some View {
     #if TEXTUAL_ENABLE_LINKS
@@ -45,8 +51,12 @@ struct TextLinkInteraction: ViewModifier {
             y: value.location.y - origin.y
           )
           let runs = layout.flatMap(\.self)
+          let end = layout.textualRevealEnd(reveal)
           let run = runs.first { run in
-            run.typographicBounds.rect.contains(localPoint)
+            guard let end else { return run.typographicBounds.rect.contains(localPoint) }
+            return run.contains { slice in
+              slice.typographicBounds.rect.contains(localPoint) && slice.characterIndices.contains { $0 < end }
+            }
           }
           switch TextTapResolution(url: run?.url, hasActiveSelection: false) {
           case .openURL(let url):

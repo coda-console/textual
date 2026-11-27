@@ -27,6 +27,8 @@ import SwiftUI
 
 struct TextFragment<Content: AttributedStringProtocol>: View {
   @Environment(\.textEnvironment) private var textEnvironment
+  @Environment(\.textReveal) private var reveal
+  @Environment(\.textRevealOffset) private var revealOffset
   @State private var builder = Derived<Content, TextBuilder>()
 
   private let content: Content
@@ -37,19 +39,32 @@ struct TextFragment<Content: AttributedStringProtocol>: View {
 
   var body: some View {
     let textBuilder = builder(content) { TextBuilder(content, environment: textEnvironment) }
-    textBuilder.text
-      .customAttribute(TextFragmentAttribute())
+    let text = textBuilder.text
+      .customAttribute(TextFragmentAttribute(offset: revealOffset, characters: textBuilder.characters))
+    Group {
+      if let reveal {
+        // Read aloud only as far as it shows.
+        text
+          .textRenderer(TextRevealRenderer(count: reveal))
+          .accessibilityLabel(Text(verbatim: String(content.characters.prefix(max(0, reveal - revealOffset)))))
+      } else {
+        text
+      }
+    }
       .onGeometryChange(for: CGSize?.self, of: \.textContainerSize) { size in
         guard let size else { return }
         textBuilder.sizeChanged(size, environment: textEnvironment)
       }
       .modifier(TextSelectionBackground())
-      .modifier(AttachmentOverlay(attachments: content.attachments()))
-      .modifier(TextLinkInteraction())
+      .modifier(AttachmentOverlay(attachments: content.attachments(), reveal: reveal))
+      .modifier(TextLinkInteraction(reveal: reveal))
   }
 }
 
 struct TextFragmentAttribute: TextAttribute {
+  /// Where the fragment's content starts in the revealed content, in characters (`textual.revealCharacters`).
+  let offset: Int
+  let characters: TextFragmentCharacters
 }
 
 extension Text.Layout {
